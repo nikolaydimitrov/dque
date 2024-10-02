@@ -63,7 +63,7 @@ func TestSegment(t *testing.T) {
 	//
 	// Recreate the segment from disk and remove the remaining item
 	//
-	seg, err = openQueueSegment(testDir, 1, false, item1Builder, nil)
+	seg, err = openQueueSegment(testDir, 1, false, item1Builder)
 	if err != nil {
 		t.Fatalf("openQueueSegment('%s') failed with '%s'\n", testDir, err.Error())
 	}
@@ -104,7 +104,7 @@ func TestSegment_ErrCorruptedSegment(t *testing.T) {
 	}
 	f.Close()
 
-	_, err = openQueueSegment(testDir, 0, false, func() interface{} { return make([]byte, 8) }, nil)
+	_, err = openQueueSegment(testDir, 0, false, func() interface{} { return make([]byte, 8) })
 	if err == nil {
 		t.Fatal("expected ErrCorruptedSegment but got nil")
 	}
@@ -137,7 +137,7 @@ func TestSegment_openQueueSegment_failIfNew(t *testing.T) {
 		t.Fatalf("Error creating directory in the TestSegment_Open method: %s\n", err)
 	}
 
-	seg, err := openQueueSegment(testDir, 1, false, item1Builder, nil)
+	seg, err := openQueueSegment(testDir, 1, false, item1Builder)
 	if err == nil {
 		t.Fatalf("openQueueSegment('%s') should have failed because it should be new\n", testDir)
 	}

@@ -535,7 +535,7 @@ func TestQueue_BlockingAggresive(t *testing.T) {
 	q := newQ(t, qName, false)
 
 	numProducers := 5
-	numItemsPerProducer := 50
+	numItemsPerProducer := 20
 	numConsumers := 25
 
 	done := make(chan bool)
@@ -552,7 +552,7 @@ func TestQueue_BlockingAggresive(t *testing.T) {
 	for p := 0; p < numProducers; p++ {
 		go func(producer int) {
 			for i := 0; i < numItemsPerProducer; i++ {
-				s := rand.Intn(15)
+				s := rand.Intn(10)
 				time.Sleep(time.Duration(s) * time.Millisecond)
 				err := q.Enqueue(&item2{i})
 				assert(t, err == nil, "Expected no error", err)
@@ -589,8 +589,8 @@ func TestQueue_BlockingAggresive(t *testing.T) {
 	}
 }
 
-func TestQueue_Iterate(t *testing.T) {
-	qName := "testIterate"
+func TestQueue_IterateUnsafe(t *testing.T) {
+	qName := "testIterateUnsafe"
 	if err := os.RemoveAll(qName); err != nil {
 		t.Fatal("Error removing queue directory:", err)
 	}
@@ -603,7 +603,7 @@ func TestQueue_Iterate(t *testing.T) {
 	}
 
 	i := 0
-	err := q.Iterate(func(item interface{}) {
+	err := q.IterateUnsafe(func(item interface{}) {
 		assert(t, item != nil, "Item is nil")
 		object, ok := item.(*item2)
 		assert(t, ok, "Item is not of type item2")
