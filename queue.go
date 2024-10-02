@@ -1,6 +1,4 @@
-//
 // Package dque is a fast embedded durable queue for Go
-//
 package dque
 
 //
@@ -295,7 +293,7 @@ func (q *DQue) dequeueLocked() (interface{}, error) {
 			} else {
 
 				// Open the next segment
-				seg, err := openQueueSegment(q.fullPath, q.firstSegment.number+1, q.turbo, q.builder, false)
+				seg, err := openQueueSegment(q.fullPath, q.firstSegment.number+1, q.turbo, q.builder, nil)
 				if err != nil {
 					return obj, errors.Wrap(err, "error creating new segment. Queue is in an inconsistent state")
 				}
@@ -406,23 +404,18 @@ func (q *DQue) SizeUnsafe() int {
 	return q.firstSegment.size() + (numSegmentsBetween * q.config.ItemsPerSegment) + q.lastSegment.size()
 }
 
-// ExactSizeUnsafe returns the exact number of items in the queue.
-func (q *DQue) ExactSizeUnsafe() (int, error) {
+// Iterate iterates over all items in the queue and calls the provided function
+// It is unsafe to call this method while other operations are being performed
+func (q *DQue) Iterate(callback func(interface{})) error {
 	if q.fileLock == nil {
-		return 0, ErrQueueClosed
+		return ErrQueueClosed
 	}
-	if q.firstSegment.number == q.lastSegment.number {
-		return q.firstSegment.size(), nil
-	}
-	sizeInBetween := 0
-	for segmentNo := q.firstSegment.number + 1; segmentNo < q.lastSegment.number; segmentNo++ {
-		seg, err := openQueueSegment(q.fullPath, segmentNo, q.turbo, q.builder, true)
-		if err != nil {
-			return 0, errors.Wrap(err, "unable to open queue "+q.fullPath+", segment:"+strconv.Itoa(segmentNo))
+	for segmentNo := q.firstSegment.number; segmentNo <= q.lastSegment.number; segmentNo++ {
+		if _, err := openQueueSegment(q.fullPath, segmentNo, q.turbo, q.builder, callback); err != nil {
+			return errors.Wrap(err, "unable to open queue "+q.fullPath+", segment:"+strconv.Itoa(segmentNo))
 		}
-		sizeInBetween += seg.size()
 	}
-	return q.firstSegment.size() + sizeInBetween + q.lastSegment.size(), nil
+	return nil
 }
 
 // SegmentNumbers returns the number of both the first last segmment.
@@ -539,7 +532,7 @@ func (q *DQue) load() error {
 	if maxNum > 0 {
 
 		// We found files
-		seg, err := openQueueSegment(q.fullPath, minNum, q.turbo, q.builder, false)
+		seg, err := openQueueSegment(q.fullPath, minNum, q.turbo, q.builder, nil)
 		if err != nil {
 			return errors.Wrap(err, "unable to create queue segment in "+q.fullPath)
 		}
@@ -551,7 +544,7 @@ func (q *DQue) load() error {
 			q.lastSegment = q.firstSegment
 		} else {
 			// We have multiple segments
-			seg, err = openQueueSegment(q.fullPath, maxNum, q.turbo, q.builder, false)
+			seg, err = openQueueSegment(q.fullPath, maxNum, q.turbo, q.builder, nil)
 			if err != nil {
 				return errors.Wrap(err, "unable to create segment for "+q.fullPath)
 			}

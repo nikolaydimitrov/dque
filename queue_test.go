@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/joncrlsn/dque"
+	"github.com/nikolaydimitrov/dque"
 )
 
 // item2 is the thing we'll be storing in the queue
@@ -589,50 +589,29 @@ func TestQueue_BlockingAggresive(t *testing.T) {
 	}
 }
 
-func TestQueue_ExactSize(t *testing.T) {
-	qName := "testExactSize"
+func TestQueue_Iterate(t *testing.T) {
+	qName := "testIterate"
 	if err := os.RemoveAll(qName); err != nil {
 		t.Fatal("Error removing queue directory:", err)
 	}
 
 	q := newQ(t, qName, false)
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 10; i++ {
 		err := q.Enqueue(&item2{i})
-		assert(t, err == nil, "Expected no error")
-
-		err = q.Close()
-		assert(t, err == nil, "Expected no error")
-
-		q = openQ(t, qName, false)
+		assert(t, err == nil, "Expected no error during enqueue")
 	}
 
-	assert(t, 100 == q.Size(), "Expected size of 100")
-	exactSize, err := q.ExactSizeUnsafe()
-	assert(t, err == nil, "Expected no error")
-	assert(t, 100 == exactSize, "Expected size of 100")
-
-	for i := 0; i < 100; i++ {
-		_, err := q.Dequeue()
-		assert(t, err == nil, "Expected no error")
-
-		err = q.Close()
-		assert(t, err == nil, "Expected no error")
-
-		q = openQ(t, qName, false)
-
-		newSize, err := q.ExactSizeUnsafe()
-		exactSize--
-		if newSize != exactSize {
-			t.Fatalf("Expected size of %d, got %d", exactSize, newSize)
-		}
-		assert(t, err == nil, "Expected no error")
-	}
-
-	assert(t, 0 == q.Size(), "Expected size of 0")
-	exactSize, err = q.ExactSizeUnsafe()
-	assert(t, err == nil, "Expected no error")
-	assert(t, 0 == exactSize, "Expected size of 0")
+	i := 0
+	err := q.Iterate(func(item interface{}) {
+		assert(t, item != nil, "Item is nil")
+		object, ok := item.(*item2)
+		assert(t, ok, "Item is not of type item2")
+		assert(t, i == object.Id, "Unexpected itemId %d, expected %d", object.Id, i)
+		i++
+	})
+	assert(t, err == nil, "Expected no error during iteration %v", err)
+	assert(t, i == 10, "Expected 10 items")
 
 	// Cleanup
 	if err := os.RemoveAll(qName); err != nil {

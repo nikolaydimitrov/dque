@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/joncrlsn/dque"
+	"github.com/nikolaydimitrov/dque"
 )
 
 // Item is what we'll be storing in the queue.  It can be any struct

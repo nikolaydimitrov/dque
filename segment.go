@@ -81,7 +81,7 @@ type qSegment struct {
 
 // load reads all objects from the queue file into a slice
 // returns ErrCorruptedSegment or ErrUnableToDecode for errors pertaining to file contents.
-func (seg *qSegment) load(countOnly bool) error {
+func (seg *qSegment) load(callback func(interface{})) error {
 
 	// This is heavy-handed but its safe
 	seg.mutex.Lock()
@@ -125,19 +125,6 @@ func (seg *qSegment) load(countOnly bool) error {
 			continue
 		}
 
-		if countOnly {
-			// Skip gobLen bytes
-			if _, err := io.CopyN(io.Discard, seg.file, int64(gobLen)); err != nil {
-				return ErrCorruptedSegment{
-					Path: seg.filePath(),
-					Err:  fmt.Errorf("error skipping %d bytes of gob data", gobLen),
-				}
-			}
-			// Add dummy item to the objects slice, just for counting purposes
-			seg.objects = append(seg.objects, nil)
-			continue
-		}
-
 		data := make([]byte, int(gobLen))
 		if _, err := io.ReadFull(seg.file, data); err != nil {
 			return ErrCorruptedSegment{
@@ -155,9 +142,12 @@ func (seg *qSegment) load(countOnly bool) error {
 			}
 		}
 
-		// Add item to the objects slice
-		seg.objects = append(seg.objects, object)
-
+		if callback != nil {
+			callback(object)
+		} else {
+			// Add item to the objects slice
+			seg.objects = append(seg.objects, object)
+		}
 		// log.Printf("TEMP: Loaded: %#v\n", object)
 	}
 }
@@ -409,7 +399,7 @@ func newQueueSegment(dirPath string, number int, turbo bool, builder func() inte
 }
 
 // openQueueSegment reads an existing persistent segment of the queue into memory
-func openQueueSegment(dirPath string, number int, turbo bool, builder func() interface{}, countOnly bool) (*qSegment, error) {
+func openQueueSegment(dirPath string, number int, turbo bool, builder func() interface{}, callback func(interface{})) (*qSegment, error) {
 
 	seg := qSegment{dirPath: dirPath, number: number, turbo: turbo, objectBuilder: builder}
 
@@ -422,7 +412,7 @@ func openQueueSegment(dirPath string, number int, turbo bool, builder func() int
 	}
 
 	// Load the items into memory
-	if err := seg.load(countOnly); err != nil {
+	if err := seg.load(callback); err != nil {
 		return nil, errors.Wrap(err, "unable to load queue segment in "+dirPath)
 	}
 
