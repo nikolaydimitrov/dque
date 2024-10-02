@@ -1,4 +1,6 @@
+//
 // Package dque is a fast embedded durable queue for Go
+//
 package dque
 
 //
