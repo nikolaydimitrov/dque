@@ -552,7 +552,7 @@ func TestQueue_BlockingAggresive(t *testing.T) {
 	for p := 0; p < numProducers; p++ {
 		go func(producer int) {
 			for i := 0; i < numItemsPerProducer; i++ {
-				s := rand.Intn(150)
+				s := rand.Intn(15)
 				time.Sleep(time.Duration(s) * time.Millisecond)
 				err := q.Enqueue(&item2{i})
 				assert(t, err == nil, "Expected no error", err)
@@ -582,6 +582,57 @@ func TestQueue_BlockingAggresive(t *testing.T) {
 		t.Fatal("Test didn't finish in time")
 	case <-done:
 	}
+
+	// Cleanup
+	if err := os.RemoveAll(qName); err != nil {
+		t.Fatal("Error removing queue directory:", err)
+	}
+}
+
+func TestQueue_ExactSize(t *testing.T) {
+	qName := "testExactSize"
+	if err := os.RemoveAll(qName); err != nil {
+		t.Fatal("Error removing queue directory:", err)
+	}
+
+	q := newQ(t, qName, false)
+
+	for i := 0; i < 100; i++ {
+		err := q.Enqueue(&item2{i})
+		assert(t, err == nil, "Expected no error")
+
+		err = q.Close()
+		assert(t, err == nil, "Expected no error")
+
+		q = openQ(t, qName, false)
+	}
+
+	assert(t, 100 == q.Size(), "Expected size of 100")
+	exactSize, err := q.ExactSizeUnsafe()
+	assert(t, err == nil, "Expected no error")
+	assert(t, 100 == exactSize, "Expected size of 100")
+
+	for i := 0; i < 100; i++ {
+		_, err := q.Dequeue()
+		assert(t, err == nil, "Expected no error")
+
+		err = q.Close()
+		assert(t, err == nil, "Expected no error")
+
+		q = openQ(t, qName, false)
+
+		newSize, err := q.ExactSizeUnsafe()
+		exactSize--
+		if newSize != exactSize {
+			t.Fatalf("Expected size of %d, got %d", exactSize, newSize)
+		}
+		assert(t, err == nil, "Expected no error")
+	}
+
+	assert(t, 0 == q.Size(), "Expected size of 0")
+	exactSize, err = q.ExactSizeUnsafe()
+	assert(t, err == nil, "Expected no error")
+	assert(t, 0 == exactSize, "Expected size of 0")
 
 	// Cleanup
 	if err := os.RemoveAll(qName); err != nil {

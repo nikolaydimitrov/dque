@@ -81,7 +81,7 @@ type qSegment struct {
 
 // load reads all objects from the queue file into a slice
 // returns ErrCorruptedSegment or ErrUnableToDecode for errors pertaining to file contents.
-func (seg *qSegment) load() error {
+func (seg *qSegment) load(countOnly bool) error {
 
 	// This is heavy-handed but its safe
 	seg.mutex.Lock()
@@ -122,6 +122,19 @@ func (seg *qSegment) load() error {
 			seg.objects = seg.objects[1:]
 			// log.Println("TEMP: Detected delete in load()")
 			seg.removeCount++
+			continue
+		}
+
+		if countOnly {
+			// Skip gobLen bytes
+			if _, err := io.CopyN(io.Discard, seg.file, int64(gobLen)); err != nil {
+				return ErrCorruptedSegment{
+					Path: seg.filePath(),
+					Err:  fmt.Errorf("error skipping %d bytes of gob data", gobLen),
+				}
+			}
+			// Add dummy item to the objects slice, just for counting purposes
+			seg.objects = append(seg.objects, nil)
 			continue
 		}
 
@@ -396,7 +409,7 @@ func newQueueSegment(dirPath string, number int, turbo bool, builder func() inte
 }
 
 // openQueueSegment reads an existing persistent segment of the queue into memory
-func openQueueSegment(dirPath string, number int, turbo bool, builder func() interface{}) (*qSegment, error) {
+func openQueueSegment(dirPath string, number int, turbo bool, builder func() interface{}, countOnly bool) (*qSegment, error) {
 
 	seg := qSegment{dirPath: dirPath, number: number, turbo: turbo, objectBuilder: builder}
 
@@ -409,7 +422,7 @@ func openQueueSegment(dirPath string, number int, turbo bool, builder func() int
 	}
 
 	// Load the items into memory
-	if err := seg.load(); err != nil {
+	if err := seg.load(countOnly); err != nil {
 		return nil, errors.Wrap(err, "unable to load queue segment in "+dirPath)
 	}
 
