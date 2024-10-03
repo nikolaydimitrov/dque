@@ -426,6 +426,7 @@ func (q *DQue) IterateUnsafe(callback func(interface{})) error {
 		for _, item := range seg.objects {
 			callback(item)
 		}
+		seg.close()
 	}
 	// Iterate over the last segment
 	for _, item := range q.lastSegment.objects {
