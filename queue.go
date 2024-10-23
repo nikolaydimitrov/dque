@@ -549,11 +549,20 @@ func (q *DQue) load() error {
 	if maxNum > 0 {
 
 		// We found files
-		seg, err := openQueueSegment(q.fullPath, minNum, q.turbo, q.builder)
-		if err != nil {
-			return errors.Wrap(err, "unable to create queue segment in "+q.fullPath)
+		for {
+			seg, err := openQueueSegment(q.fullPath, minNum, q.turbo, q.builder)
+			if err != nil {
+				return errors.Wrap(err, "unable to create queue segment in "+q.fullPath)
+			}
+			// Make sure the first segment is not empty
+			if seg.size() > 0 {
+				q.firstSegment = seg
+				break
+			}
+			// This segment was empty, try the next one
+			seg.close()
+			minNum++
 		}
-		q.firstSegment = seg
 
 		if minNum == maxNum {
 			// We have only one segment so the
@@ -561,7 +570,7 @@ func (q *DQue) load() error {
 			q.lastSegment = q.firstSegment
 		} else {
 			// We have multiple segments
-			seg, err = openQueueSegment(q.fullPath, maxNum, q.turbo, q.builder)
+			seg, err := openQueueSegment(q.fullPath, maxNum, q.turbo, q.builder)
 			if err != nil {
 				return errors.Wrap(err, "unable to create segment for "+q.fullPath)
 			}
