@@ -554,8 +554,8 @@ func (q *DQue) load() error {
 			if err != nil {
 				return errors.Wrap(err, "unable to create queue segment in "+q.fullPath)
 			}
-			// Make sure the first segment is not empty
-			if seg.size() > 0 {
+			// Make sure the first segment is not empty or it's not complete (current)
+			if seg.size() > 0 || seg.sizeOnDisk() < q.config.ItemsPerSegment {
 				q.firstSegment = seg
 				break
 			}
