@@ -409,6 +409,16 @@ func (q *DQue) SizeUnsafe() int {
 	return q.firstSegment.size() + (numSegmentsBetween * q.config.ItemsPerSegment) + q.lastSegment.size()
 }
 
+// Iterate iterates over all items in the queue and calls the provided function
+func (q *DQue) Iterate(callback func(interface{})) error {
+	if q.fileLock == nil {
+		return ErrQueueClosed
+	}
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+	return q.IterateUnsafe(callback)
+}
+
 // IterateUnsafe iterates over all items in the queue and calls the provided function
 // It is unsafe to call this method while other operations are being performed
 func (q *DQue) IterateUnsafe(callback func(interface{})) error {
@@ -557,20 +567,16 @@ func (q *DQue) load() error {
 		for {
 			seg, err := openQueueSegment(q.fullPath, minNum, q.turbo, q.builder)
 			if err != nil {
-				if minNum == maxNum {
-					return errors.Wrap(err, "unable to create queue segment in "+q.fullPath)
-				}
-				// File missing, try the next one
-				minNum++
-				continue
+				return errors.Wrap(err, "unable to create queue segment in "+q.fullPath)
 			}
 			// Make sure the first segment is not empty or it's not complete (i.e. is current)
 			if seg.size() > 0 || seg.sizeOnDisk() < q.config.ItemsPerSegment {
 				q.firstSegment = seg
 				break
 			}
-			// This segment was empty, delete it and try the next one
+			// Delete the segment as it's empty and complete
 			seg.delete()
+			// Try the next one
 			minNum++
 		}
 
